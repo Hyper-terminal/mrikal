@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useLayoutEffect, useState, useRef } from "react";
 
 const TicketList = ({ tickets, setTickets }) => {
   const [sortOrder, setSortOrder] = useState("default");
+  const listRef = useRef(null);
+  const origins = useRef({});
 
   const sortedTickets =
     sortOrder === "default"
@@ -14,7 +16,7 @@ const TicketList = ({ tickets, setTickets }) => {
 
   const shuffleHandler = () => {
     const newTickets = [...tickets];
-    for (let index = tickets.length - 1; index >= 0; index--) {
+    for (let index = 0; index < tickets.length; index++) {
       const newIndex = Math.floor(Math.random() * tickets.length);
 
       // swap them with new indexes
@@ -25,6 +27,29 @@ const TicketList = ({ tickets, setTickets }) => {
     }
     setTickets(newTickets);
   };
+
+  useLayoutEffect(() => {
+    if (listRef.current) {
+      const list = listRef.current;
+      const children = list.children;
+
+      for (const child of children) {
+        const key = child.id;
+        const next = child.getBoundingClientRect();
+        if (key in origins.current) {
+          const previous = origins.current[key];
+          const delta = getDelta(previous, next);
+          if (!isZero(delta)) {
+            invert(delta, child);
+            requestAnimationFrame(() => {
+              play(child);
+            });
+          }
+        }
+        origins.current[key] = next;
+      }
+    }
+  }, [sortedTickets]);
 
   return (
     <div className="min-h-screen bg-gray-50 min-w-screen pt-10">
@@ -61,10 +86,11 @@ const TicketList = ({ tickets, setTickets }) => {
             </button>
           )}
         </div>
-        <ul  className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ul ref={listRef} className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {sortedTickets.map((ticket, index) => (
             <li
               key={index}
+              id={ticket.name}
               className="text-gray-700 mb-2 bg-white rounded-lg shadow-md px-6 py-6 flex flex-col items-center border border-gray-200 hover:border-blue-500 hover:bg-blue-100 transition-all transform hover:-translate-y-1 hover:scale-105 duration-300 ease-linear min-h-[180px]"
             >
               <div className="flex justify-between w-full">
@@ -79,5 +105,22 @@ const TicketList = ({ tickets, setTickets }) => {
     </div>
   );
 };
+
+const invert = (delta, elem) => {
+  elem.style.transform = `translate(${delta.left}px, ${delta.top}px)`;
+  elem.style.transition = `transform 0s`;
+};
+
+const play = (elem) => {
+  elem.style.transform = ``;
+  elem.style.transition = `transform 300ms ease`;
+};
+
+const getDelta = (start, target) => ({
+  top: start.top - target.top,
+  left: start.left - target.left,
+});
+
+const isZero = (delta) => delta.left === 0 && delta.top === 0;
 
 export default TicketList;
